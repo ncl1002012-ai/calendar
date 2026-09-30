@@ -1,0 +1,49 @@
+name: Sync School Calendar
+
+# Runs on GitHub's own servers, not a student's device — so it never
+# touches the school's network filter at all. Fetches the ICS feed every
+# 30 minutes and commits it to this repo as calendar.ics. GitHub then
+# serves that file via raw.githubusercontent.com with CORS wide open
+# (that's just how GitHub serves raw files, always has been), so the
+# school site can read it directly with a plain fetch() — no proxy, no
+# backend, no billing plan required.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # lets you trigger a sync manually from the Actions tab
+
+permissions:
+  contents: write # needed so the workflow can commit calendar.ics back to the repo
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch calendar
+        run: |
+          curl -fsSL "https://ltms.ltisdschools.org/calendar/calendar_396.ics" -o calendar.ics.new
+          if [ ! -s calendar.ics.new ]; then
+            echo "Fetch returned an empty file — aborting without touching calendar.ics"
+            exit 1
+          fi
+          if ! grep -q "BEGIN:VCALENDAR" calendar.ics.new; then
+            echo "Fetched file doesn't look like calendar data — aborting without touching calendar.ics"
+            exit 1
+          fi
+          mv calendar.ics.new calendar.ics
+
+      - name: Commit if changed
+        run: |
+          git config user.name "calendar-sync-bot"
+          git config user.email "actions@github.com"
+          git add calendar.ics
+          if git diff --cached --quiet; then
+            echo "No changes since last sync"
+          else
+            git commit -m "Sync calendar $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
