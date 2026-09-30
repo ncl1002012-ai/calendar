@@ -21,10 +21,10 @@ jobs:
             -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
             -H "Accept: text/calendar,text/plain,*/*" \
             -w "HTTP %{http_code}, type %{content_type}\n" \
-            "https://ltms.ltisdschools.org/calendar/calendar_396.ics" \
+            "https://ltms.ltisdschools.org/cf_calendar/feed.cfm?type=ical&feedID=F5DBE51067C74544A0468ECC32C9ACC8" \
             -o calendar.ics.new
           echo "--- first part of response ---"
-          head -c 400 calendar.ics.new
+          head -c 300 calendar.ics.new
           echo
           echo "------------------------------"
           if [ ! -s calendar.ics.new ]; then
