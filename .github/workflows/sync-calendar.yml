@@ -1,20 +1,12 @@
 name: Sync School Calendar
 
-# Runs on GitHub's own servers, not a student's device — so it never
-# touches the school's network filter at all. Fetches the ICS feed every
-# 30 minutes and commits it to this repo as calendar.ics. GitHub then
-# serves that file via raw.githubusercontent.com with CORS wide open
-# (that's just how GitHub serves raw files, always has been), so the
-# school site can read it directly with a plain fetch() — no proxy, no
-# backend, no billing plan required.
-
 on:
   schedule:
     - cron: '*/30 * * * *'
-  workflow_dispatch: # lets you trigger a sync manually from the Actions tab
+  workflow_dispatch:
 
 permissions:
-  contents: write # needed so the workflow can commit calendar.ics back to the repo
+  contents: write
 
 jobs:
   sync:
@@ -25,13 +17,22 @@ jobs:
 
       - name: Fetch calendar
         run: |
-          curl -fsSL "https://ltms.ltisdschools.org/calendar/calendar_396.ics" -o calendar.ics.new
+          curl -sSL --compressed \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+            -H "Accept: text/calendar,text/plain,*/*" \
+            -w "HTTP %{http_code}, type %{content_type}\n" \
+            "https://ltms.ltisdschools.org/calendar/calendar_396.ics" \
+            -o calendar.ics.new
+          echo "--- first part of response ---"
+          head -c 400 calendar.ics.new
+          echo
+          echo "------------------------------"
           if [ ! -s calendar.ics.new ]; then
-            echo "Fetch returned an empty file — aborting without touching calendar.ics"
+            echo "Fetch returned an empty file - aborting"
             exit 1
           fi
           if ! grep -q "BEGIN:VCALENDAR" calendar.ics.new; then
-            echo "Fetched file doesn't look like calendar data — aborting without touching calendar.ics"
+            echo "Fetched file doesn't look like calendar data - aborting"
             exit 1
           fi
           mv calendar.ics.new calendar.ics
